@@ -33,7 +33,7 @@ def carregar_dados():
         pd.to_numeric(df["TotalParcelas"], errors="coerce").fillna(0).astype(int)
     )
 
-    # 3. CÁLCULOS DE NEGÓCIO (Aqui estava o erro: essas linhas são obrigatórias)
+    # 3. CÁLCULOS DE NEGÓCIO
     df["Passivo_Futuro"] = (df["TotalParcelas"] - df["ParcelaAtual"]) * df["Valor_R$"]
 
     # Classificação Essencial vs Estilo de Vida
@@ -107,7 +107,7 @@ def processar_dados_futuros(df_mes):
             "TotalParcelas",
             "ParcelaAtual",
             "Ultima_Parcela_Fmt",
-            "Data_Final",  # Mantém para ordenação, mas não precisa exibir se não quiser
+            "Data_Final",
         ]
     ].sort_values(by="Data_Final", ascending=False)
 
@@ -124,3 +124,36 @@ def processar_dados_futuros(df_mes):
         df_grafico = pd.DataFrame()
 
     return df_tabela, df_grafico
+
+
+def calcular_metricas_contexto(df, mes_ref):
+    """
+    Retorna:
+    - val_atual: Valor do mês selecionado
+    - val_anterior: Valor do mês imediatamente anterior
+    - media_6m: Média dos 6 meses anteriores ao selecionado
+    """
+    # Agrupa totais por mês e garante ordem cronológica
+    df_totais = df.groupby("MesAno")["Valor_View"].sum().reset_index()
+    df_totais = df_totais.sort_values("MesAno")
+
+    # Encontra o índice do mês selecionado na lista ordenada
+    mascara = df_totais["MesAno"] == mes_ref
+
+    if not mascara.any():
+        return 0.0, 0.0, 0.0
+
+    idx = df_totais[mascara].index[0]
+    val_atual = df_totais.loc[idx, "Valor_View"]
+
+    # Busca valor anterior
+    val_anterior = df_totais.iloc[idx - 1]["Valor_View"] if idx > 0 else 0.0
+
+    # Calcula média dos últimos 6 meses (excluindo o atual para comparação justa)
+    inicio = max(0, idx - 6)
+    if idx > 0:
+        media_6m = df_totais.iloc[inicio:idx]["Valor_View"].mean()
+    else:
+        media_6m = 0.0
+
+    return val_atual, val_anterior, media_6m

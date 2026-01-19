@@ -5,11 +5,52 @@ import pandas as pd
 
 
 def renderizar(df_mes, moeda, largura_grafico):
+    st.subheader(
+        f"🔮 Raio-X da Dívida ({df_mes['MesAno'].iloc[0] if not df_mes.empty else '--'})"
+    )
+
+    if df_mes.empty:
+        st.warning("Sem dados neste mês.")
+        return
+
+    # --- NOVOS KPIS FINANCEIROS ---
+    # 1. Passivo Total: Quanto de dívida JÁ CONTRAÍDA resta pagar DEPOIS dessa fatura?
+    passivo_total = df_mes["Passivo_View"].sum()
+
+    # 2. Parcelas Pagas: Quanto da fatura atual é pagamento de compras antigas/parceladas?
+    # Consideramos parcelado tudo que tem TotalParcelas > 1
+    pagamento_parcelas = df_mes[df_mes["TotalParcelas"] > 1]["Valor_View"].sum()
+
+    # 3. Novas Compras (Opcional, mas legal para ver o balanço):
+    # Tudo que é parcela 1 ou compra à vista (1/1)
+    novas_compras = df_mes[df_mes["ParcelaAtual"] == 1]["Valor_View"].sum()
+
+    col1, col2, col3 = st.columns(3)
+
+    col1.metric(
+        "Passivo Futuro Total",
+        f"{moeda} {passivo_total:,.2f}",
+        help="Soma de todas as parcelas que ainda vão vencer nos próximos meses.",
+    )
+
+    col2.metric(
+        "Pago em Parcelas (Mês)",
+        f"{moeda} {pagamento_parcelas:,.2f}",
+        help="Valor desta fatura destinado a pagar dívidas de meses anteriores.",
+    )
+
+    col3.metric(
+        "Novos Gastos (Mês)",
+        f"{moeda} {novas_compras:,.2f}",
+        help="Compras à vista ou 1ª parcela feitas neste mês.",
+    )
+
+    st.markdown("---")
+
+    # --- PROJEÇÃO (Tabela e Gráfico) ---
     st.subheader("Fluxo de Caixa Comprometido")
 
-    # Importante: .copy() aqui também se for manipular
     df_mes_safe = df_mes.copy()
-
     df_tabela, df_grafico = utils.processar_dados_futuros(df_mes_safe)
 
     if df_tabela is not None:
