@@ -1,0 +1,13 @@
+# Ignorar dados sensíveis (Sua vida financeira)
+data/
+*.csv
+*.xlsx
+
+# Ignorar arquivos de sistema e ambiente (Lixo técnico)
+venv/
+__pycache__/
+.DS_Store
+.streamlit/
+
+# Ignorar segredos (se um dia usar chaves de API)
+.env
