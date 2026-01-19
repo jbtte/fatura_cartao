@@ -1,113 +1,30 @@
 {
   "project_metadata": {
     "name": "Dashboard Financeiro Analítico Familiar",
-    "description": "Ferramenta de Business Intelligence pessoal para análise de faturas de cartão de crédito, com foco em projeção de passivos futuros e análise comportamental de consumo.",
-    "version": "1.2.0 (Refatorado)",
+    "version": "2.0.0 (Arquitetura Modular)",
     "last_update": "2026-01-19",
     "owner_profile": "Analista Judiciário / Desenvolvedor Python",
-    "objective": "Gestão financeira prudente visando mudança para o exterior e viagens familiares."
+    "objective": "Gestão financeira de alta precisão para planejamento de imigração e lazer familiar [cite: 2025-07-04]."
   },
   "tech_stack": {
     "language": "Python 3.11+",
     "core_framework": "Streamlit",
     "data_processing": "Pandas",
-    "visualization": "Plotly Express",
-    "styling": "Matplotlib (para gradientes em tabelas)",
-    "utilities": [
-      "Glob (leitura de arquivos)",
-      "OS (manipulação de caminhos)",
-      "Watchdog (para hot-reload durante desenvolvimento)"
-    ]
+    "visualization": ["Plotly Express (Sunburst, Area, Bar)", "Pandas Styler"]
   },
-  "directory_structure": {
-    "root": "fatura_cartao/",
-    "files": [
-      "app.py (Interface Visual)",
-      "utils.py (Lógica de Negócios e ETL)",
-      "constants.py (Configurações Estáticas)",
-      "requirements.txt (Dependências)"
-    ],
-    "data_folder": "data/raw/ (Local para depositar os CSVs mensais)"
-  },
-  "data_logic": {
-    "input_format": "CSV (separador detectado automaticamente)",
-    "key_columns_required": [
-      "Data",
-      "Estabelecimento",
-      "Categoria",
-      "Valor_R$",
-      "ParcelaAtual",
-      "TotalParcelas",
-      "MesAno"
-    ],
-    "calculated_fields": {
-      "passivo_futuro": "(TotalParcelas - ParcelaAtual) * Valor_R$",
-      "tipo_gasto": "Classificação binária (Essencial vs. Estilo de Vida) baseada em lista constante",
-      "simulacao_usd": "Conversão de todos os valores monetários baseada em taxa fixa configurável"
+  "architecture": {
+    "pattern": "Modular View-Logic Separation",
+    "components": {
+      "app.py": "Orquestrador principal e Sidebar global [cite: 2026-01-19].",
+      "utils.py": "Engine de processamento (ETL), cálculos de métricas de contexto e projeções [cite: 2026-01-19].",
+      "constants.py": "Repositório de regras de negócio (Categorias essenciais e taxas) [cite: 2026-01-19].",
+      "views/": "Módulos de interface independentes para cada aba do sistema [cite: 2026-01-19]."
     }
   },
-  "dashboard_modules": {
-    "module_1_visao_mensal": {
-      "description": "Panorama geral do mês selecionado com KPIs e gráficos de distribuição.",
-      "visualizations": [
-        {
-          "type": "Bar Chart",
-          "title": "Gastos por Categoria",
-          "library": "Plotly Express"
-        },
-        {
-          "type": "Pie Chart",
-          "title": "Essencial vs. Estilo de Vida",
-          "library": "Plotly Express"
-        },
-        {
-          "type": "Bar Chart (Horizontal)",
-          "title": "Top 5 Estabelecimentos (Lei de Pareto)",
-          "insight": "Identifica onde está concentrado o maior volume de gastos."
-        },
-        {
-          "type": "Bar Chart",
-          "title": "Intensidade de Gasto Semanal",
-          "insight": "Mapeia os dias da semana com maior incidência de compras."
-        }
-      ],
-      "interactive_elements": [
-        "Filtro Multiselect por Categoria",
-        "Seletor de Mês"
-      ]
-    },
-    "module_2_comparador": {
-      "description": "Ferramenta de duelo entre dois meses distintos.",
-      "visualizations": [
-        {
-          "type": "Grouped Bar Chart",
-          "title": "Comparativo Lado a Lado (Mês A vs Mês B)"
-        },
-        {
-          "type": "Pandas Styler Table",
-          "title": "Detalhe da Variação (Delta)",
-          "feature": "Gradiente de cor (Heatmap) indicando aumento (vermelho) ou redução (verde) de gastos por categoria."
-        }
-      ]
-    },
-    "module_3_futuro": {
-      "description": "Projeção de fluxo de caixa comprometido.",
-      "visualizations": [
-        {
-          "type": "Area Chart",
-          "title": "Comprometimento de Renda Futura",
-          "logic": "Soma das parcelas restantes projetadas nos meses subsequentes."
-        }
-      ]
-    }
-  },
-  "replication_steps": [
-    "1. Criar diretório 'fatura_cartao' e subdiretórios 'data/raw'.",
-    "2. Criar ambiente virtual: python -m venv venv",
-    "3. Ativar venv: source venv/bin/activate",
-    "4. Instalar dependências: pip install streamlit pandas plotly openpyxl matplotlib watchdog",
-    "5. Criar os arquivos app.py, utils.py e constants.py com o código refatorado.",
-    "6. Salvar arquivos CSV das faturas na pasta data/raw/.",
-    "7. Executar aplicação: streamlit run app.py"
-  ]
+  "key_features_v2": {
+    "hierarchical_analysis": "Gráfico Sunburst para análise de Categoria > Subcategoria [cite: 2026-01-19].",
+    "trend_intelligence": "Métricas automáticas de comparação com mês anterior e média semestral [cite: 2026-01-19].",
+    "debt_mapping": "Cálculo de 'Fim Previsto' e amortização mensal de parcelados [cite: 2026-01-19].",
+    "data_sanitization": "Limpeza automática de strings (strip/title) para evitar duplicidade por erro de digitação [cite: 2026-01-19]."
+  }
 }

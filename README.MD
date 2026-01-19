@@ -64,3 +64,64 @@ Para que o dashboard funcione corretamente, o arquivo `.csv` deve conter as segu
 | **Valor_R$**        | Numérico | Valor da parcela ou compra. Pode usar vírgula ou ponto.            | `69,65`       |
 | **ParcelaAtual**    | Inteiro  | Número da parcela sendo paga neste mês.                            | `1`           |
 | **TotalParcelas**   | Inteiro  | Em quantas vezes a compra foi dividida.                            | `1`           |
+
+# 📊 Gestão Financeira Analítica v2.0
+
+![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=Streamlit&logoColor=white)
+![Architecture](https://img.shields.io/badge/Architecture-Modular_Views-blue?style=for-the-badge)
+
+Dashboard de BI (Business Intelligence) focado em **Prudência Financeira** e planejamento de longo prazo, como imigração para os EUA e viagens internacionais [cite: 2025-07-04, 2026-01-13].
+
+---
+
+## 🏗️ Arquitetura do Sistema
+
+O projeto utiliza uma separação rigorosa entre lógica e interface para garantir manutenibilidade [cite: 2026-01-19]:
+
+- **`app.py`**: Gerencia o estado global e a navegação por abas [cite: 2026-01-19].
+- **`utils.py`**: Concentra toda a inteligência matemática, limpeza de dados e métricas de tendência [cite: 2026-01-19].
+- **`views/`**: Contém os arquivos `tab_mes.py`, `tab_comparador.py` e `tab_futuro.py`, permitindo evoluir cada aba isoladamente [cite: 2026-01-19].
+- **`constants.py`**: Centraliza parâmetros como a lista de gastos essenciais e taxas de câmbio [cite: 2026-01-19].
+
+---
+
+## 🌟 Novas Funcionalidades (v2.0)
+
+### 1. Raio-X Hierárquico (Sunburst)
+
+Visualização em múltiplos níveis que permite identificar, por exemplo, quanto da categoria **Alimentação** foi destinado a **Mercado** (Essencial) vs. **Restaurantes** (Estilo de Vida) [cite: 2026-01-19].
+
+### 2. Inteligência de Contexto
+
+Na aba de comparação, o sistema calcula automaticamente [cite: 2026-01-19]:
+
+- **Delta vs. Mês Anterior:** Variação nominal do gasto [cite: 2026-01-19].
+- **Média Semestral:** Compara o gasto atual com a média dos últimos 6 meses para identificar anomalias [cite: 2026-01-19].
+
+### 3. Mapa de Desalavancagem
+
+Detalhamento de compras parceladas incluindo [cite: 2026-01-19]:
+
+- Valor total original da compra [cite: 2026-01-19].
+- Data prevista para a última parcela (mês/ano) [cite: 2026-01-19].
+- Métricas de amortização (Quanto da fatura atual é dívida antiga vs. novos gastos) [cite: 2026-01-19].
+
+---
+
+## 📋 Requisitos de Dados (CSV)
+
+O arquivo deve ser depositado em `data/raw/` com as colunas [cite: 2026-01-19]:
+`Data, MesAno, Estabelecimento, Categoria, Subcategoria, Valor_R$, ParcelaAtual, TotalParcelas` [cite: 2026-01-19].
+
+---
+
+## 🚀 Como Executar
+
+1.  Ative o ambiente virtual: `source venv/bin/activate` [cite: 2026-01-19].
+2.  Instale as dependências: `pip install streamlit pandas plotly matplotlib` [cite: 2026-01-19].
+3.  Execute: `streamlit run app.py` [cite: 2026-01-19].
+
+---
+
+_Foco em Ordem, Família e Futuro._
