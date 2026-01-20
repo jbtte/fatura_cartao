@@ -157,3 +157,51 @@ def calcular_metricas_contexto(df, mes_ref):
         media_6m = 0.0
 
     return val_atual, val_anterior, media_6m
+
+
+def gerar_df_media_historica(df_view, mes_ref, meses_janela=6):
+    """
+    Gera um DataFrame que representa a média de gastos por categoria
+    nos meses anteriores ao mês de referência.
+    """
+    df_totais = df_view.sort_values("MesAno")
+    meses_lista = sorted(df_view["MesAno"].unique())
+
+    if mes_ref not in meses_lista:
+        return pd.DataFrame()
+
+    idx = meses_lista.index(mes_ref)
+    inicio = max(0, idx - meses_janela)
+
+    # Filtra os meses da janela (excluindo o atual)
+    meses_analise = meses_lista[inicio:idx]
+
+    if not meses_analise:
+        return pd.DataFrame()
+
+    df_janela = df_view[df_view["MesAno"].isin(meses_analise)]
+
+    # Calcula a média por categoria
+    # Dividimos a soma total de cada categoria pelo número de meses na janela
+    df_media = df_janela.groupby("Categoria")["Valor_View"].sum() / len(meses_analise)
+
+    return df_media.reset_index().rename(columns={"Valor_View": "Valor_Media"})
+
+
+def buscar_historico_6m(df_view, mes_ref):
+    """
+    Retorna um DataFrame com os totais dos últimos 6 meses
+    terminando no mês de referência.
+    """
+    df_totais = df_view.groupby("MesAno")["Valor_View"].sum().reset_index()
+    df_totais = df_totais.sort_values("MesAno")
+
+    meses_lista = df_totais["MesAno"].tolist()
+
+    if mes_ref not in meses_lista:
+        return pd.DataFrame()
+
+    idx = meses_lista.index(mes_ref)
+    inicio = max(0, idx - 5)  # Pega o atual + 5 anteriores
+
+    return df_totais.iloc[inicio : idx + 1]
