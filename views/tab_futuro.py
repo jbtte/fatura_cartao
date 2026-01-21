@@ -13,6 +13,13 @@ def renderizar(df_mes, moeda, largura_grafico):
         st.warning("Sem dados neste mês.")
         return
 
+    # Verificação de colunas necessárias
+    colunas_necessarias = ["Passivo_View", "TotalParcelas", "ParcelaAtual", "Valor_View"]
+    for col in colunas_necessarias:
+        if col not in df_mes.columns:
+            st.error(f"Coluna '{col}' não encontrada nos dados.")
+            return
+
     # --- NOVOS KPIS FINANCEIROS ---
     # 1. Passivo Total: Quanto de dívida JÁ CONTRAÍDA resta pagar DEPOIS dessa fatura?
     passivo_total = df_mes["Passivo_View"].sum()
@@ -81,11 +88,11 @@ def renderizar(df_mes, moeda, largura_grafico):
         if not df_grafico.empty:
             fig_proj = px.area(
                 df_grafico,
-                x="Meses_Frente",
+                x="Mês Referência",
                 y="Valor",
                 title=f"Curva de Desalavancagem ({moeda})",
                 labels={
-                    "Meses_Frente": "Meses a partir de agora",
+                    "Mês Referência": "Mês de Pagamento",
                     "Valor": "Valor Comprometido",
                 },
             )

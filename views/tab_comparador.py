@@ -9,10 +9,8 @@ def renderizar(df_view, meses, moeda, largura_grafico):
 
     # --- 1. SELETORES DE CONTEXTO ---
     c1, c2 = st.columns(2)
-    # Mês A é a nossa âncora para o histórico e comparação
     mes_a = c1.selectbox("Mês Referência (A)", meses, index=0)
 
-    # Opção dinâmica para comparar com outro mês ou com a média
     opcoes_b = ["Média (Últimos 6 meses)"] + meses
     mes_b = c2.selectbox(
         "Comparar com (B)", opcoes_b, index=1 if len(opcoes_b) > 1 else 0
@@ -20,32 +18,46 @@ def renderizar(df_view, meses, moeda, largura_grafico):
 
     st.markdown("---")
 
-    # --- 2. GRÁFICO DE EVOLUÇÃO (TENDÊNCIA 6 MESES) ---
-    # Este gráfico dá a visão macro antes do detalhamento por categoria
-    st.markdown("#### 📈 Evolução do Gasto Total (Últimos 6 Meses)")
+    # --- 2. GRÁFICO DE TENDÊNCIA (LINHAS + MÉDIA MÓVEL) ---
+    st.markdown("#### 📈 Análise de Tendência (Últimos 6 Meses)")
     df_hist = utils.buscar_historico_6m(df_view, mes_a)
 
     if not df_hist.empty:
-        fig_hist = px.bar(
-            df_hist,
-            x="MesAno",
-            y="Valor_View",
-            text_auto=".0f",
-            color_discrete_sequence=["#34495E"],
-            labels={"MesAno": "Mês", "Valor_View": f"Total ({moeda})"},
+        # Garante string para o Eixo X
+        df_hist["MesAno"] = df_hist["MesAno"].astype(str)
+
+        # CÁLCULO DA MÉDIA MÓVEL (3 MESES)
+        # min_periods=1 garante que a linha comece a ser desenhada já no primeiro ponto
+        df_hist["Média Móvel (3m)"] = (
+            df_hist["Valor_View"].rolling(window=3, min_periods=1).mean()
         )
 
-        # Linha de média para referência visual rápida no histórico
-        media_valor = df_hist["Valor_View"].mean()
-        fig_hist.add_hline(
-            y=media_valor,
-            line_dash="dash",
-            line_color="orange",
-            annotation_text=f"Média: {media_valor:,.0f}",
+        # Plotagem em Linha
+        fig_hist = px.line(
+            df_hist,
+            x="MesAno",
+            y=["Valor_View", "Média Móvel (3m)"],
+            markers=True,
+            title="Curva de Gastos vs Tendência",
+            labels={
+                "value": f"Valor ({moeda})",
+                "MesAno": "Mês",
+                "variable": "Legenda",
+            },
+            color_discrete_map={
+                "Valor_View": "#2980B9",
+                "Média Móvel (3m)": "#E67E22",
+            },  # Azul e Laranja
         )
+
+        # Ajuste visual para limpar o gráfico
+        fig_hist.update_layout(
+            hovermode="x unified"
+        )  # Mostra os dois valores ao passar o mouse
+
         st.plotly_chart(fig_hist, width=largura_grafico)
     else:
-        st.info("Dados históricos insuficientes para mostrar a evolução de 6 meses.")
+        st.info("Dados históricos insuficientes.")
 
     st.markdown("---")
 
@@ -53,10 +65,9 @@ def renderizar(df_view, meses, moeda, largura_grafico):
     if mes_a:
         atual, anterior, media_6m_val = utils.calcular_metricas_contexto(df_view, mes_a)
 
-        st.markdown(f"**Análise de Desempenho: {mes_a}**")
+        st.markdown(f"**Performance do Mês: {mes_a}**")
         k1, k2, k3 = st.columns(3)
 
-        # Comparação com o mês imediatamente anterior
         delta_ant = atual - anterior
         k1.metric(
             f"Total {mes_a}",
@@ -64,14 +75,11 @@ def renderizar(df_view, meses, moeda, largura_grafico):
             f"{delta_ant:,.2f} vs anterior",
             delta_color="inverse",
         )
-
-        # Valor do mês anterior para referência
         k2.metric("Mês Anterior", f"{moeda} {anterior:,.2f}")
 
-        # Comparação com a média histórica (6 meses)
         delta_med = atual - media_6m_val if media_6m_val > 0 else 0
         k3.metric(
-            "Média (6m)",
+            "Média Geral (6m)",
             f"{moeda} {media_6m_val:,.2f}",
             f"{delta_med:,.2f} vs média",
             delta_color="inverse",
@@ -81,7 +89,6 @@ def renderizar(df_view, meses, moeda, largura_grafico):
 
     # --- 4. COMPARAÇÃO DETALHADA POR CATEGORIA ---
     if mes_a and mes_b:
-        # Lógica para Mês A (Sempre fixo)
         df_a_cat = (
             df_view[df_view["MesAno"] == mes_a]
             .groupby("Categoria")["Valor_View"]
@@ -91,30 +98,32 @@ def renderizar(df_view, meses, moeda, largura_grafico):
         df_a_cat["Origem"] = f"Mês {mes_a}"
 
         if mes_b == "Média (Últimos 6 meses)":
-            # Comparação: Mês Selecionado vs Média Virtual
             df_b_data = utils.gerar_df_media_historica(df_view, mes_a)
 
             if not df_b_data.empty:
-                # Prepara dados para o gráfico
                 df_b_plot = df_b_data.copy().rename(
                     columns={"Valor_Media": "Valor_View"}
                 )
                 df_b_plot["Origem"] = "Média (6m)"
                 df_comp_plot = pd.concat([df_a_cat, df_b_plot])
 
-                # Prepara dados para a tabela Delta
-                df_delta = pd.merge(
-                    df_a_cat, df_b_data, on="Categoria", how="outer"
-                ).fillna(0)
+                df_delta = pd.merge(df_a_cat, df_b_data, on="Categoria", how="outer")
+
+                # Correção de tipos para evitar erro Arrow
+                if "Origem" in df_delta.columns:
+                    df_delta = df_delta.drop(columns=["Origem"])
+
+                df_delta = df_delta.fillna(0)
                 df_delta["Diferença"] = df_delta["Valor_View"] - df_delta["Valor_Media"]
                 df_delta = df_delta.rename(
                     columns={"Valor_View": f"Valor {mes_a}", "Valor_Media": "Média 6M"}
                 )
             else:
-                st.warning("Não há meses anteriores suficientes para calcular a média.")
-                return
+                st.warning("Dados insuficientes para calcular média histórica.")
+                df_comp_plot = df_a_cat.copy()
+                df_delta = df_a_cat.copy()
+                df_delta["Diferença"] = 0
         else:
-            # Comparação: Mês A vs Mês B (Mês real)
             df_b_cat = (
                 df_view[df_view["MesAno"] == mes_b]
                 .groupby("Categoria")["Valor_View"]
@@ -123,11 +132,11 @@ def renderizar(df_view, meses, moeda, largura_grafico):
             )
             df_b_cat["Origem"] = f"Mês {mes_b}"
             df_comp_plot = pd.concat([df_a_cat, df_b_cat])
-
-            # Tabela Delta entre dois meses reais
             df_delta = utils.calcular_delta_meses(df_view, mes_a, mes_b)
 
-        # Renderização do Gráfico de Barras Agrupadas
+        # Correção Arrow: String explícita
+        df_comp_plot["Origem"] = df_comp_plot["Origem"].astype(str)
+
         fig_comp = px.bar(
             df_comp_plot,
             x="Categoria",
@@ -138,13 +147,15 @@ def renderizar(df_view, meses, moeda, largura_grafico):
         )
         st.plotly_chart(fig_comp, width=largura_grafico)
 
-        # Renderização da Tabela com Mapa de Calor (Heatmap)
+        # --- 5. TABELA COM FORMATO SEGURO ---
         st.markdown("#### 📉 Tabela Detalhada de Variações")
+
+        cols_num = df_delta.select_dtypes(include=["number"]).columns.tolist()
+        format_dict = {col: "{:.2f}" for col in cols_num}
+
         st.dataframe(
             df_delta.sort_values("Diferença", ascending=False)
-            .style.format("{:.2f}")
-            .background_gradient(
-                subset=["Diferença"], cmap="RdYlGn_r"
-            ),  # Verde para queda, Vermelho para alta
+            .style.format(format_dict)
+            .background_gradient(subset=["Diferença"], cmap="RdYlGn_r"),
             width=largura_grafico,
         )

@@ -3,11 +3,13 @@ import plotly.express as px
 import pandas as pd
 
 
-def renderizar(df_view, meses, moeda, largura_grafico):
-    mes_ref = st.selectbox("Selecione o Mês", meses)
-
-    # Importante: .copy() para evitar erros
+def renderizar(df_view, mes_ref, moeda, largura_grafico):
+    # Filtra dados do mês selecionado (mês já vem da sidebar global)
     df_mes = df_view[df_view["MesAno"] == mes_ref].copy()
+
+    if df_mes.empty:
+        st.warning(f"Sem dados para o mês {mes_ref}.")
+        return
 
     # --- KPIs ---
     c1, c2, c3, c4 = st.columns(4)
@@ -81,7 +83,7 @@ def renderizar(df_view, meses, moeda, largura_grafico):
 
     with col_b2:
         st.caption("Intensidade Semanal")
-        df_mes["Data"] = pd.to_datetime(df_mes["Data"])
+        # Data já é datetime (convertida em utils.carregar_dados)
         df_mes["Dia_Semana"] = df_mes["Data"].dt.day_name()
         dias_traduzidos = {
             "Monday": "Segunda",
