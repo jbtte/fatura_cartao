@@ -98,7 +98,7 @@ def carregar_dados():
 
     for f in arquivos:
         try:
-            df_temp = pd.read_csv(f, encoding="utf-8")
+            df_temp = pd.read_csv(f, encoding="utf-8", engine="python")
             df_temp.columns = [c.strip() for c in df_temp.columns]
 
             # --- DETECÇÃO DE SHIFT (ARQUIVO TORTO) ---
