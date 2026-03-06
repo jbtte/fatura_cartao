@@ -130,8 +130,7 @@ def renderizar(df_view, meses, largura_grafico):
         st.markdown("#### 📊 Maiores Variações por Categoria")
         st.caption("Positivo = mês A gastou mais | Negativo = mês A gastou menos")
 
-        df_delta_reset = df_delta.reset_index() if "Categoria" not in df_delta.columns else df_delta.copy()
-        df_delta_sorted = df_delta_reset.sort_values("Diferença")
+        df_delta_sorted = df_delta.sort_values("Diferença")
         df_delta_sorted["Direção"] = df_delta_sorted["Diferença"].apply(
             lambda x: "Aumento" if x > 0 else "Redução"
         )
@@ -152,12 +151,11 @@ def renderizar(df_view, meses, largura_grafico):
         # --- TABELA DETALHADA ---
         st.markdown("#### 📉 Tabela Detalhada de Variações")
 
-        cols_num = df_delta.select_dtypes(include=["number"]).columns.tolist()
+        df_display = df_delta.sort_values("Diferença", ascending=False).reset_index(drop=True)
+        cols_num = df_display.select_dtypes(include=["number"]).columns.tolist()
         format_dict = {col: "{:.2f}" for col in cols_num}
-
         st.dataframe(
-            df_delta.sort_values("Diferença", ascending=False)
-            .style.format(format_dict)
+            df_display.style.format(format_dict)
             .background_gradient(subset=["Diferença"], cmap="RdYlGn_r"),
-            width=largura_grafico,
+            use_container_width=True,
         )

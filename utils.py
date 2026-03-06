@@ -224,9 +224,9 @@ def calcular_delta_meses(df, mes_a, mes_b):
     resumo_b = df[df["MesAno"] == mes_b].groupby("Categoria")["Valor_View"].sum()
     df_delta = pd.DataFrame(
         {f"Valor {mes_a}": resumo_a, f"Valor {mes_b}": resumo_b}
-    ).fillna(0)
+    ).fillna(0).reset_index()
     df_delta["Diferença"] = df_delta[f"Valor {mes_a}"] - df_delta[f"Valor {mes_b}"]
-    return df_delta.sort_values("Diferença", ascending=False)
+    return df_delta.sort_values("Diferença", ascending=False).reset_index(drop=True)
 
 
 def processar_dados_futuros(df_mes):

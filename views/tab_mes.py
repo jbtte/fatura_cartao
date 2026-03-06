@@ -130,7 +130,13 @@ def renderizar(df_view, mes_ref, largura_grafico):
 
         st.dataframe(
             df_focado[["Data", "Estabelecimento", "Subcategoria", "Cartao", "Valor_View"]]
-            .sort_values("Valor_View", ascending=False),
+            .sort_values("Valor_View", ascending=False)
+            .reset_index(drop=True),
+            column_config={
+                "Data": st.column_config.DateColumn("Data", format="DD/MM/YYYY"),
+                "Valor_View": st.column_config.NumberColumn("Valor (R$)", format="R$ %.2f"),
+                "Cartao": "Cartão",
+            },
             use_container_width=True,
         )
     else:
@@ -139,5 +145,14 @@ def renderizar(df_view, mes_ref, largura_grafico):
             df_mes[["Data", "Estabelecimento", "Categoria", "Subcategoria", "Cartao", "Valor_View"]]
             .sort_values("Valor_View", ascending=False)
             .head(10)
+            .reset_index(drop=True)
         )
-        st.dataframe(top10, use_container_width=True)
+        st.dataframe(
+            top10,
+            column_config={
+                "Data": st.column_config.DateColumn("Data", format="DD/MM/YYYY"),
+                "Valor_View": st.column_config.NumberColumn("Valor (R$)", format="R$ %.2f"),
+                "Cartao": "Cartão",
+            },
+            use_container_width=True,
+        )

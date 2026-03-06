@@ -18,12 +18,6 @@ st.sidebar.header("Configurações")
 meses = sorted(df["MesAno"].unique(), reverse=True)
 mes_ref_global = st.sidebar.selectbox("📅 Mês de Referência", meses)
 
-cartoes = sorted(df["Cartao"].dropna().unique())
-if len(cartoes) > 1:
-    filtro_cartoes = st.sidebar.multiselect("💳 Cartão", cartoes, default=cartoes)
-    if filtro_cartoes:
-        df = df[df["Cartao"].isin(filtro_cartoes)]
-
 # --- ÁREA PRINCIPAL ---
 st.title("📊 Gestão Financeira Analítica")
 
