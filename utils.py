@@ -202,6 +202,9 @@ def carregar_dados():
 
     df["Passivo_Futuro"] = df["Passivo_Futuro"].clip(lower=0)
 
+    df["Valor_View"] = df["Valor_R$"]
+    df["Passivo_View"] = df["Passivo_Futuro"]
+
     # Categorias
     if "Categoria" in df.columns:
         df["Tipo_Gasto"] = df["Categoria"].apply(
@@ -216,24 +219,13 @@ def carregar_dados():
 # --- FUNÇÕES DE VISUALIZAÇÃO ---
 
 
-def aplicar_conversao_moeda(df, simular_usd, taxa):
-    df_view = df.copy()
-    fator = 1 / taxa if simular_usd else 1
-    df_view["Valor_View"] = df_view["Valor_R$"] * fator
-    if "Passivo_Futuro" in df_view.columns:
-        df_view["Passivo_View"] = df_view["Passivo_Futuro"] * fator
-    else:
-        df_view["Passivo_View"] = 0.0
-    return df_view, "USD" if simular_usd else "BRL"
-
-
 def calcular_delta_meses(df, mes_a, mes_b):
     resumo_a = df[df["MesAno"] == mes_a].groupby("Categoria")["Valor_View"].sum()
     resumo_b = df[df["MesAno"] == mes_b].groupby("Categoria")["Valor_View"].sum()
     df_delta = pd.DataFrame(
         {f"Valor {mes_a}": resumo_a, f"Valor {mes_b}": resumo_b}
     ).fillna(0)
-    df_delta["Diferença"] = df_delta[f"Valor {mes_b}"] - df_delta[f"Valor {mes_a}"]
+    df_delta["Diferença"] = df_delta[f"Valor {mes_a}"] - df_delta[f"Valor {mes_b}"]
     return df_delta.sort_values("Diferença", ascending=False)
 
 
@@ -286,13 +278,14 @@ def processar_dados_futuros(df_mes):
                     "Mes_Sort": data_futura.strftime("%Y-%m"),
                     "Mês Referência": data_futura.strftime("%m/%Y"),
                     "Valor": row["Valor_View"],
+                    "Estabelecimento": row["Estabelecimento"],
                 }
             )
 
     if projecao:
         df_grafico = (
             pd.DataFrame(projecao)
-            .groupby(["Mes_Sort", "Mês Referência"])["Valor"]
+            .groupby(["Mes_Sort", "Mês Referência", "Estabelecimento"])["Valor"]
             .sum()
             .reset_index()
             .sort_values("Mes_Sort")
