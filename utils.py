@@ -4,7 +4,7 @@ import os
 import streamlit as st
 import re
 import numpy as np
-from constants import CATS_ESSENCIAIS
+from constants import CATS_ESSENCIAIS, ALERTA_OUTLIER_FATOR, ALERTA_ASSINATURA_MIN_MESES, ALERTA_ASSINATURA_MAX_CV, ALERTA_ASSINATURA_VARIACAO
 
 
 # --- FUNÇÕES AUXILIARES DE LIMPEZA (fora do cache para melhor performance) ---
@@ -367,7 +367,7 @@ def detectar_anomalias(df, mes_ref):
             continue
         media = hist.mean()
         atual = grupo_mes["Valor_View"].sum()
-        if media > 0 and atual > media * 2.5:
+        if media > 0 and atual > media * ALERTA_OUTLIER_FATOR:
             alertas["outliers"].append({
                 "Estabelecimento": estab,
                 "Valor Atual (R$)": round(atual, 2),
@@ -383,19 +383,19 @@ def detectar_anomalias(df, mes_ref):
     if len(meses_hist) >= 3:
         estabs_hist = df_hist.groupby(["Estabelecimento", "MesAno"])["Valor_View"].sum().reset_index()
         recorrencia = estabs_hist.groupby("Estabelecimento")["MesAno"].count()
-        recorrentes = recorrencia[recorrencia >= 3].index
+        recorrentes = recorrencia[recorrencia >= ALERTA_ASSINATURA_MIN_MESES].index
 
         for estab in recorrentes:
             if estab not in df_mes["Estabelecimento"].values:
                 continue
             vals_hist = estabs_hist[estabs_hist["Estabelecimento"] == estab]["Valor_View"]
             cv = vals_hist.std() / vals_hist.mean() if vals_hist.mean() > 0 else 1
-            if cv > 0.15:  # alta variância histórica = não é assinatura fixa
+            if cv > ALERTA_ASSINATURA_MAX_CV:  # alta variância histórica = não é assinatura fixa
                 continue
             media_hist = vals_hist.mean()
             val_atual = df_mes[df_mes["Estabelecimento"] == estab]["Valor_View"].sum()
             variacao = (val_atual - media_hist) / media_hist if media_hist > 0 else 0
-            if abs(variacao) > 0.10:
+            if abs(variacao) > ALERTA_ASSINATURA_VARIACAO:
                 alertas["assinaturas"].append({
                     "Estabelecimento": estab,
                     "Valor Atual (R$)": round(val_atual, 2),
