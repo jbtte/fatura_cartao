@@ -343,3 +343,104 @@ def gerar_df_media_historica(df_view, mes_ref, meses_janela=6):
     df_janela = df_view[df_view["MesAno"].isin(meses_analise)]
     df_media = df_janela.groupby("Categoria")["Valor_View"].sum() / len(meses_analise)
     return df_media.reset_index().rename(columns={"Valor_View": "Valor_Media"})
+
+
+def detectar_anomalias(df, mes_ref):
+    """Retorna dict com listas de anomalias por tipo."""
+    meses_ordenados = sorted(df["MesAno"].unique())
+    if mes_ref not in meses_ordenados:
+        return {}
+
+    idx_atual = meses_ordenados.index(mes_ref)
+    meses_hist = meses_ordenados[max(0, idx_atual - 6):idx_atual]
+
+    df_mes = df[df["MesAno"] == mes_ref].copy()
+    df_hist = df[df["MesAno"].isin(meses_hist)].copy()
+
+    alertas = {"outliers": [], "assinaturas": [], "duplicatas": [], "sem_categoria": []}
+
+    # --- 1. OUTLIERS POR ESTABELECIMENTO ---
+    # Estabelecimento com valor atual > 2.5x a média histórica (mín. 2 ocorrências no histórico)
+    for estab, grupo_mes in df_mes.groupby("Estabelecimento"):
+        hist = df_hist[df_hist["Estabelecimento"] == estab]["Valor_View"]
+        if len(hist) < 2:
+            continue
+        media = hist.mean()
+        atual = grupo_mes["Valor_View"].sum()
+        if media > 0 and atual > media * 2.5:
+            alertas["outliers"].append({
+                "Estabelecimento": estab,
+                "Valor Atual (R$)": round(atual, 2),
+                "Média Histórica (R$)": round(media, 2),
+                "Vezes acima": round(atual / media, 1),
+            })
+
+    alertas["outliers"].sort(key=lambda x: x["Vezes acima"], reverse=True)
+
+    # --- 2. ASSINATURAS COM VALOR ALTERADO ---
+    # Recorrente = aparece em >= 3 dos últimos 6 meses com baixa variação de valor
+    # Alerta se valor atual difere > 10% da média histórica
+    if len(meses_hist) >= 3:
+        estabs_hist = df_hist.groupby(["Estabelecimento", "MesAno"])["Valor_View"].sum().reset_index()
+        recorrencia = estabs_hist.groupby("Estabelecimento")["MesAno"].count()
+        recorrentes = recorrencia[recorrencia >= 3].index
+
+        for estab in recorrentes:
+            if estab not in df_mes["Estabelecimento"].values:
+                continue
+            vals_hist = estabs_hist[estabs_hist["Estabelecimento"] == estab]["Valor_View"]
+            cv = vals_hist.std() / vals_hist.mean() if vals_hist.mean() > 0 else 1
+            if cv > 0.15:  # alta variância histórica = não é assinatura fixa
+                continue
+            media_hist = vals_hist.mean()
+            val_atual = df_mes[df_mes["Estabelecimento"] == estab]["Valor_View"].sum()
+            variacao = (val_atual - media_hist) / media_hist if media_hist > 0 else 0
+            if abs(variacao) > 0.10:
+                alertas["assinaturas"].append({
+                    "Estabelecimento": estab,
+                    "Valor Atual (R$)": round(val_atual, 2),
+                    "Valor Habitual (R$)": round(media_hist, 2),
+                    "Variação (%)": round(variacao * 100, 1),
+                })
+
+    # --- 3. POSSÍVEIS DUPLICATAS ---
+    # Mesmo (Estabelecimento, Valor, Data) no mês → forte sinal
+    # Mesmo (Estabelecimento, Valor) no mês em datas diferentes → sinal fraco
+    df_mes["Data_str"] = df_mes["Data"].dt.strftime("%Y-%m-%d")
+    grupo = df_mes.groupby(["Estabelecimento", "Valor_View", "Data_str"]).size().reset_index(name="n")
+    fortes = grupo[grupo["n"] > 1]
+    for _, row in fortes.iterrows():
+        alertas["duplicatas"].append({
+            "Estabelecimento": row["Estabelecimento"],
+            "Valor (R$)": round(row["Valor_View"], 2),
+            "Data": row["Data_str"],
+            "Ocorrências": int(row["n"]),
+            "Nível": "⚠️ Forte",
+        })
+
+    # Mesmo valor + estab em datas distintas (exclui os já detectados acima)
+    estabs_fortes = {(r["Estabelecimento"], r["Valor (R$)"]) for r in alertas["duplicatas"]}
+    grupo2 = df_mes.groupby(["Estabelecimento", "Valor_View"]).size().reset_index(name="n")
+    fracos = grupo2[grupo2["n"] > 1]
+    for _, row in fracos.iterrows():
+        chave = (row["Estabelecimento"], round(row["Valor_View"], 2))
+        if chave not in estabs_fortes:
+            alertas["duplicatas"].append({
+                "Estabelecimento": row["Estabelecimento"],
+                "Valor (R$)": round(row["Valor_View"], 2),
+                "Data": "datas distintas",
+                "Ocorrências": int(row["n"]),
+                "Nível": "ℹ️ Fraco",
+            })
+
+    # --- 4. SEM CLASSIFICAÇÃO ---
+    # Categoria e Subcategoria ambas "Diversos" = não foi identificado
+    sem_cat = df_mes[
+        (df_mes["Categoria"].str.strip().str.lower() == "diversos") &
+        (df_mes["Subcategoria"].str.strip().str.lower() == "diversos")
+    ][["Estabelecimento", "Valor_View", "Data"]].copy()
+    sem_cat["Data"] = sem_cat["Data"].dt.strftime("%d/%m/%Y")
+    sem_cat = sem_cat.rename(columns={"Valor_View": "Valor (R$)", "Data": "Data"})
+    alertas["sem_categoria"] = sem_cat.sort_values("Valor (R$)", ascending=False).to_dict("records")
+
+    return alertas
