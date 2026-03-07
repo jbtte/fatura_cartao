@@ -130,7 +130,7 @@ def renderizar(df_view, mes_ref, largura_grafico):
 
         st.dataframe(
             df_focado[["Data", "Estabelecimento", "Subcategoria", "Cartao", "Valor_View"]]
-            .sort_values("Valor_View", ascending=False)
+            .sort_values(["Subcategoria", "Valor_View"], ascending=[True, False])
             .reset_index(drop=True),
             column_config={
                 "Data": st.column_config.DateColumn("Data", format="DD/MM/YYYY"),
