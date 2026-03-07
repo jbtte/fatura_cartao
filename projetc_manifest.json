@@ -1,113 +1,127 @@
 {
   "project_metadata": {
     "name": "Dashboard Financeiro Analítico Familiar",
-    "description": "Ferramenta de Business Intelligence pessoal para análise de faturas de cartão de crédito, com foco em projeção de passivos futuros e análise comportamental de consumo.",
-    "version": "1.2.0 (Refatorado)",
-    "last_update": "2026-01-19",
+    "description": "Ferramenta de Business Intelligence pessoal para análise de faturas de cartão de crédito, com parser via Gemini API e dashboard Streamlit rodando em Raspberry Pi.",
+    "version": "2.0.0",
+    "last_update": "2026-03-07",
     "owner_profile": "Analista Judiciário / Desenvolvedor Python",
     "objective": "Gestão financeira prudente visando mudança para o exterior e viagens familiares."
   },
+  "architecture": {
+    "parser": {
+      "machine": "macOS local",
+      "description": "Extrai fatura PDF via Gemini API, classifica transações por regras.csv e gera CSV estruturado.",
+      "file": "parse_pdf.py",
+      "requirements": "requirements.txt (apenas google-genai)",
+      "flow": [
+        "1. parse_pdf.py fatura.pdf — envia PDF ao Gemini, salva JSON bruto em data/raw/YYYYMM_raw.json",
+        "2. parse_pdf.py --reclassify YYYYMM — aplica regras.csv, exibe inferidos",
+        "3. Confirmação: inferidos não reconhecidos viram categoria 'Diversos/Diversos'",
+        "4. CSV gerado, enviado via scp ao Pi e JSON intermediário apagado"
+      ]
+    },
+    "dashboard": {
+      "machine": "Raspberry Pi (jbtte@raspberrypi.local)",
+      "description": "Dashboard Streamlit que lê os CSVs em data/raw/ e exibe análises financeiras.",
+      "requirements": "requirements-pi.txt (streamlit, pandas, plotly e dependências completas)"
+    }
+  },
   "tech_stack": {
     "language": "Python 3.11+",
-    "core_framework": "Streamlit",
-    "data_processing": "Pandas",
-    "visualization": "Plotly Express",
-    "styling": "Matplotlib (para gradientes em tabelas)",
-    "utilities": [
-      "Glob (leitura de arquivos)",
-      "OS (manipulação de caminhos)",
-      "Watchdog (para hot-reload durante desenvolvimento)"
-    ]
+    "parser": ["google-genai (Gemini API)", "csv", "json", "argparse", "pathlib"],
+    "dashboard": ["Streamlit", "Pandas", "Plotly Express", "Matplotlib (gradientes em tabelas)"]
   },
   "directory_structure": {
     "root": "fatura_cartao/",
     "files": [
-      "app.py (Interface Visual)",
-      "utils.py (Lógica de Negócios e ETL)",
-      "constants.py (Configurações Estáticas)",
-      "requirements.txt (Dependências)"
+      "app.py — entrypoint do dashboard Streamlit",
+      "utils.py — lógica de negócio, ETL e detecção de anomalias",
+      "constants.py — configurações estáticas e thresholds",
+      "parse_pdf.py — parser local (PDF → CSV via Gemini)",
+      "requirements.txt — dependências do parser (local)",
+      "requirements-pi.txt — dependências do dashboard (Pi)"
     ],
-    "data_folder": "data/raw/ (Local para depositar os CSVs mensais)"
+    "data_folder": "data/raw/ — CSVs mensais e regras.csv de classificação"
+  },
+  "classification_pipeline": {
+    "file": "data/regras.csv",
+    "levels": {
+      "nivel_1": "Match direto — keyword é substring do nome do estabelecimento",
+      "nivel_2": "Match por palavra — palavra do estabelecimento (≥5 chars) bate em alguma keyword",
+      "nivel_3": "Inferido pelo Gemini — sem match nas regras; usuário confirma e vira 'Diversos/Diversos'"
+    },
+    "update_flow": "Rodar --reclassify após editar regras.csv para reclassificar sem chamar a API novamente"
   },
   "data_logic": {
-    "input_format": "CSV (separador detectado automaticamente)",
-    "key_columns_required": [
-      "Data",
-      "Estabelecimento",
-      "Categoria",
-      "Valor_R$",
-      "ParcelaAtual",
-      "TotalParcelas",
-      "MesAno"
+    "input_format": "CSV gerado pelo parse_pdf.py",
+    "key_columns": [
+      "TxID", "Data", "MesAno", "Estabelecimento", "Categoria", "Subcategoria",
+      "Valor_R$", "Cartao", "EhParcela", "ParcelaAtual", "TotalParcelas",
+      "ValorTotal", "GrupoParcela", "EhEstorno", "ValorAbsoluto"
     ],
     "calculated_fields": {
-      "passivo_futuro": "(TotalParcelas - ParcelaAtual) * Valor_R$",
-      "tipo_gasto": "Classificação binária (Essencial vs. Estilo de Vida) baseada em lista constante",
-      "simulacao_usd": "Conversão de todos os valores monetários baseada em taxa fixa configurável"
+      "Passivo_Futuro": "(TotalParcelas - ParcelaAtual) * Valor_R$",
+      "Tipo_Gasto": "Classificação binária (Essencial vs. Estilo de Vida) via CATS_ESSENCIAIS",
+      "Valor_View": "Alias de Valor_R$ (extensível para outras moedas no futuro)"
     }
   },
   "dashboard_modules": {
-    "module_1_visao_mensal": {
-      "description": "Panorama geral do mês selecionado com KPIs e gráficos de distribuição.",
-      "visualizations": [
-        {
-          "type": "Bar Chart",
-          "title": "Gastos por Categoria",
-          "library": "Plotly Express"
-        },
-        {
-          "type": "Pie Chart",
-          "title": "Essencial vs. Estilo de Vida",
-          "library": "Plotly Express"
-        },
-        {
-          "type": "Bar Chart (Horizontal)",
-          "title": "Top 5 Estabelecimentos (Lei de Pareto)",
-          "insight": "Identifica onde está concentrado o maior volume de gastos."
-        },
-        {
-          "type": "Bar Chart",
-          "title": "Intensidade de Gasto Semanal",
-          "insight": "Mapeia os dias da semana com maior incidência de compras."
-        }
+    "aba_1_visao_mensal": {
+      "description": "Panorama do mês com KPIs, distribuição hierárquica e análise comportamental.",
+      "features": [
+        "Alerta quando mês está >15% acima da média histórica de 6 meses",
+        "KPIs: Total gasto, nº de itens, passivo criado, % essencial",
+        "Sunburst interativo Categoria > Subcategoria",
+        "Donut Essencial vs Estilo de Vida",
+        "Top 5 estabelecimentos (Pareto horizontal)",
+        "Gastos por dia do mês (quando no ciclo você mais gasta)",
+        "Microscópio: drill-down por categoria com tabela agrupada por subcategoria",
+        "Top 10 transações como view padrão (sem filtro ativo)"
+      ]
+    },
+    "aba_2_comparador": {
+      "description": "Comparação entre dois meses ou mês vs média histórica de 6 meses.",
+      "features": [
+        "Gráfico de tendência 6 meses com média móvel de 3 meses",
+        "KPIs de performance: vs mês anterior e vs média 6m",
+        "Bar chart agrupado por categoria (A vs B)",
+        "Gráfico de barras horizontais das maiores variações (vermelho/verde)",
+        "Tabela detalhada com gradiente de calor na coluna Diferença"
+      ]
+    },
+    "aba_3_futuro": {
+      "description": "Projeção de fluxo de caixa comprometido por parcelas ativas.",
+      "features": [
+        "KPIs: passivo futuro total, pago em parcelas no mês, novos gastos",
+        "Callout com data de quitação de todas as parcelas",
+        "Tabela de dívidas ativas com valor total, parcela e previsão de fim",
+        "Curva de desalavancagem empilhada por item (top 8 + Outros)"
+      ]
+    },
+    "aba_4_alertas": {
+      "description": "Detecção automática de anomalias e discrepâncias.",
+      "features": [
+        "Gastos fora do padrão: estabelecimento >2.5× a média histórica",
+        "Assinaturas alteradas: recorrentes com variação >10% do valor habitual",
+        "Possíveis duplicatas: forte (mesmo estab+valor+data) ou fraco (sem datas)",
+        "Sem classificação: transações em Diversos/Diversos (desconhecidas)"
       ],
-      "interactive_elements": [
-        "Filtro Multiselect por Categoria",
-        "Seletor de Mês"
-      ]
-    },
-    "module_2_comparador": {
-      "description": "Ferramenta de duelo entre dois meses distintos.",
-      "visualizations": [
-        {
-          "type": "Grouped Bar Chart",
-          "title": "Comparativo Lado a Lado (Mês A vs Mês B)"
-        },
-        {
-          "type": "Pandas Styler Table",
-          "title": "Detalhe da Variação (Delta)",
-          "feature": "Gradiente de cor (Heatmap) indicando aumento (vermelho) ou redução (verde) de gastos por categoria."
-        }
-      ]
-    },
-    "module_3_futuro": {
-      "description": "Projeção de fluxo de caixa comprometido.",
-      "visualizations": [
-        {
-          "type": "Area Chart",
-          "title": "Comprometimento de Renda Futura",
-          "logic": "Soma das parcelas restantes projetadas nos meses subsequentes."
-        }
-      ]
+      "thresholds": "Configuráveis em constants.py (ALERTA_*)"
     }
   },
-  "replication_steps": [
-    "1. Criar diretório 'fatura_cartao' e subdiretórios 'data/raw'.",
-    "2. Criar ambiente virtual: python -m venv venv",
-    "3. Ativar venv: source venv/bin/activate",
-    "4. Instalar dependências: pip install streamlit pandas plotly openpyxl matplotlib watchdog",
-    "5. Criar os arquivos app.py, utils.py e constants.py com o código refatorado.",
-    "6. Salvar arquivos CSV das faturas na pasta data/raw/.",
-    "7. Executar aplicação: streamlit run app.py"
-  ]
+  "replication_steps": {
+    "parser_local": [
+      "1. Criar venv: python3 -m venv venv && source venv/bin/activate",
+      "2. Instalar: pip install -r requirements.txt",
+      "3. Configurar GEMINI_API_KEY no .env",
+      "4. Rodar: python parse_pdf.py fatura.pdf",
+      "5. Revisar inferidos e atualizar regras.csv se necessário",
+      "6. Rodar: python parse_pdf.py --reclassify YYYYMM"
+    ],
+    "dashboard_pi": [
+      "1. Criar venv: python3 -m venv venv && source venv/bin/activate",
+      "2. Instalar: pip install -r requirements-pi.txt",
+      "3. Executar: streamlit run app.py"
+    ]
+  }
 }
