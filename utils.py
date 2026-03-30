@@ -86,8 +86,14 @@ def _limpar_parcela_atual(val):
     return int(numeros[0]) if numeros else 1
 
 
+def _cache_key_csvs():
+    """Retorna uma tupla (arquivo, mtime) para invalidar o cache quando arquivos mudarem."""
+    arquivos = glob.glob(os.path.join("data", "raw", "*.csv"))
+    return tuple(sorted((f, os.path.getmtime(f)) for f in arquivos))
+
+
 @st.cache_data
-def carregar_dados():
+def carregar_dados(_cache_key=None):
     caminho = os.path.join("data", "raw", "*.csv")
     arquivos = glob.glob(caminho)
 

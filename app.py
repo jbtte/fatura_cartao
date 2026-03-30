@@ -6,7 +6,7 @@ from views import tab_mes, tab_comparador, tab_futuro, tab_alertas
 
 st.set_page_config(page_title="Dashboard Financeiro", layout="wide")
 
-df = utils.carregar_dados()
+df = utils.carregar_dados(_cache_key=utils._cache_key_csvs())
 
 if df is None:
     st.error("Nenhum arquivo encontrado em data/raw/")

@@ -51,7 +51,7 @@ COLUNAS_CSV = [
     "ValorAbsoluto",
 ]
 
-PROMPT = """
+PROMPT_BASE = """
 Você é um extrator de dados de faturas de cartão de crédito brasileiras.
 
 Analise o PDF e retorne APENAS um JSON válido com esta estrutura:
@@ -83,20 +83,30 @@ Regras de extração:
 - mes_ano: mês de PAGAMENTO da fatura (não da compra)
 - Retornar SOMENTE o JSON, sem markdown, sem texto adicional
 
-Classificação — prefira as categorias e subcategorias abaixo. Só crie novas se nenhuma existente fizer sentido:
+{categorias}"""
 
-Alimentação: Restaurantes, Mercado, Lanchonete, Padaria/Doces, Delivery, Cafés/Doces, Sorveteria, Bebidas/Clube de Vinhos, Suplementos, Conveniência, Praça de Alimentação, Doces/Chocolates, Padaria/Delicatessen
-Assinaturas: Streaming, Produtividade, Apps/Serviços, Armazenamento
-Compras: Marketplace, Vestuário, Casa/Utilidades, Eletrônicos/Acessórios, Cosméticos, Papelaria, Diversos, Festas/Decoração, Casa/Decoração, Vestuário Infantil, Ferramentas/Cutelaria
-Lazer: Viagens, Brinquedos, Artigos Esportivos, Passeios, Eventos, Cinema, Jogos, Parques/Ingressos, Academia, Programa de Milhas, Agência/Viagens, Hospedagem
-Saúde: Farmácia, Consultas/Procedimentos, Cuidados Pessoais/Estética
-Transporte: Uber/Transporte, Estacionamento, Combustível, Transporte Público, Seguro Auto
-Diversos: Condomínio, Doações/Igreja, Comércio
-Financeiro: Câmbio/Remessas
-Impostos e Taxas: IOF
-Educação: Materiais, Cursos, Assinaturas
-Veículos: Manutenção
-"""
+
+def _build_prompt(regras_path: Path) -> str:
+    """Gera o prompt com a seção de categorias derivada do regras.csv atual."""
+    from collections import defaultdict
+    cats: dict = defaultdict(set)
+    if regras_path.exists():
+        with open(regras_path, encoding="utf-8") as f:
+            for row in csv.DictReader(f, delimiter=";"):
+                cat = row.get("categoria", "").strip()
+                sub = row.get("subcategoria", "").strip()
+                if cat and sub and cat != "categoria":
+                    cats[cat].add(sub)
+
+    if not cats:
+        return PROMPT_BASE.replace("{categorias}", "")
+
+    lines = ["Classificação — prefira as categorias e subcategorias abaixo. Só crie novas se nenhuma existente fizer sentido:\n"]
+    for cat in sorted(cats):
+        subs = ", ".join(sorted(cats[cat]))
+        lines.append(f"{cat}: {subs}")
+
+    return PROMPT_BASE.replace("{categorias}", "\n".join(lines))
 
 # ── FUNÇÕES ───────────────────────────────────────────────────────────────────
 
@@ -108,7 +118,7 @@ def gerar_txid(data: str, estab: str, valor: float, cartao: str) -> str:
 def carregar_regras(path: Path) -> list:
     regras = []
     with open(path, encoding="utf-8") as f:
-        for row in csv.DictReader(f):
+        for row in csv.DictReader(f, delimiter=";"):
             regras.append({
                 "palavra_chave": row["palavra_chave"].strip().lower(),
                 "categoria": row["categoria"].strip(),
@@ -146,8 +156,9 @@ def classificar(estabelecimento: str, regras: list) -> tuple:
     return estabelecimento, "", "", 3
 
 
-def extrair_via_gemini(pdf_path: Path, api_key: str) -> dict:
+def extrair_via_gemini(pdf_path: Path, api_key: str, regras_path: Path) -> dict:
     client = genai.Client(api_key=api_key)
+    prompt = _build_prompt(regras_path)
 
     print(f"📤 Enviando {pdf_path.name} para Gemini API...")
     with open(pdf_path, "rb") as f:
@@ -161,7 +172,7 @@ def extrair_via_gemini(pdf_path: Path, api_key: str) -> dict:
 
     response = client.models.generate_content(
         model="gemini-2.5-flash",
-        contents=[uploaded, PROMPT],
+        contents=[uploaded, prompt],
     )
 
     text = response.text.strip()
@@ -299,9 +310,10 @@ def cmd_extrair(args, projeto_root: Path):
 
     raw_dir = projeto_root / "data" / "raw"
     raw_dir.mkdir(parents=True, exist_ok=True)
-    regras = carregar_regras(projeto_root / "data" / "regras.csv")
+    regras_path = projeto_root / "data" / "regras.csv"
+    regras = carregar_regras(regras_path)
 
-    dados = extrair_via_gemini(pdf_path, api_key)
+    dados = extrair_via_gemini(pdf_path, api_key, regras_path)
 
     mes_ano = args.mes_ano or dados.get("mes_ano", "")
     if not mes_ano:
