@@ -60,7 +60,7 @@ def renderizar(df, mes_ref, largura_grafico):
                 "Valor Atual (R$)": "R$ {:.2f}",
                 "Valor Habitual (R$)": "R$ {:.2f}",
                 "Variação (%)": "{:+.1f}%",
-            }).applymap(cor_variacao, subset=["Variação (%)"]),
+            }).map(cor_variacao, subset=["Variação (%)"]),
             use_container_width=True,
         )
         st.markdown("")
