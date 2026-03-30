@@ -38,7 +38,7 @@ def renderizar(df_view, mes_ref, largura_grafico):
     with col_g1:
         st.subheader("Raio-X: Categoria > Subcategoria")
         fig_sun = px.sunburst(
-            df_mes,
+            df_mes[df_mes["Valor_View"] > 0],
             path=["Categoria", "Subcategoria"],
             values="Valor_View",
             color="Categoria",
